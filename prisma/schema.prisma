@@ -1,23 +1,17 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
   provider = "sqlite"
   url      = "file:dev.sqlite"
 }
 
 model Session {
-  id            String    @id
-  shop          String    @unique
+  id            String         @id
+  shop          String         @unique
   state         String
-  isOnline      Boolean   @default(false)
+  isOnline      Boolean        @default(false)
   scope         String?
   expires       DateTime?
   accessToken   String
@@ -25,8 +19,22 @@ model Session {
   firstName     String?
   lastName      String?
   email         String?
-  accountOwner  Boolean   @default(false)
+  accountOwner  Boolean        @default(false)
   locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  collaborator  Boolean?       @default(false)
+  emailVerified Boolean?       @default(false)
+  customerSetup CustomerSetup?
+}
+
+model CustomerSetup {
+  id                             String   @id @default(uuid())
+  shopName                       String   @unique
+  companyName                    String
+  customerEmail                  String
+  customerPhoneNumberCountryCode String
+  customerPhoneNumber            String
+  appName                        String
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  session                        Session  @relation(fields: [shopName], references: [shop])
 }
