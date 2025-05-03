@@ -1,0 +1,38 @@
+# fly.toml app configuration file generated for mob-app-builder-little-sun-592 on 2025-05-03T15:06:03+05:30
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mob-app-builder-little-sun-592'
+primary_region = 'sin'
+
+[build]
+
+[env]
+  PORT = '3000'
+  SCOPES = 'read_products,unauthenticated_read_bulk_operations,unauthenticated_read_bundles,unauthenticated_read_checkouts,unauthenticated_read_content,unauthenticated_read_customer_tags,unauthenticated_read_customers,unauthenticated_read_gates,unauthenticated_read_metaobjects,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_tags,unauthenticated_read_selling_plans,unauthenticated_read_shop_pay_installments_pricing,unauthenticated_write_bulk_operations,unauthenticated_write_checkouts,unauthenticated_write_customers,unauthenticated_write_gates'
+  SHOPIFY_API_KEY = 'b605980b90f2572353b86a3d019a7152'
+  SHOPIFY_APP_URL = 'https://mob-app-builder-little-sun-592.fly.dev'
+
+[processes]
+  app = 'node ./dbsetup.js npm run docker-start'
+
+[[mounts]]
+  source = 'data'
+  destination = '/data'
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = '1GB'
+  auto_extend_size_limit = '10GB'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

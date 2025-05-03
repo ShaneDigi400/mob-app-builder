@@ -7,23 +7,23 @@ application_url = "https://mob-app-builder-little-sun-592.fly.dev"
 embedded = true
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2025-04"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products, unauthenticated_write_checkouts, unauthenticated_read_checkouts, unauthenticated_read_content, unauthenticated_write_customers, unauthenticated_read_customers, unauthenticated_read_customer_tags, unauthenticated_read_metaobjects, unauthenticated_read_product_listings, unauthenticated_read_product_inventory, unauthenticated_read_product_pickup_locations, unauthenticated_read_product_tags, unauthenticated_read_selling_plans, unauthenticated_write_bulk_operations, unauthenticated_read_bulk_operations, unauthenticated_read_bundles, unauthenticated_write_gates, unauthenticated_read_gates, unauthenticated_read_shop_pay_installments_pricing"
+scopes = "read_products,unauthenticated_read_bulk_operations,unauthenticated_read_bundles,unauthenticated_read_checkouts,unauthenticated_read_content,unauthenticated_read_customer_tags,unauthenticated_read_customers,unauthenticated_read_gates,unauthenticated_read_metaobjects,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_tags,unauthenticated_read_selling_plans,unauthenticated_read_shop_pay_installments_pricing,unauthenticated_write_bulk_operations,unauthenticated_write_checkouts,unauthenticated_write_customers,unauthenticated_write_gates"
 
 [auth]
 redirect_urls = [
