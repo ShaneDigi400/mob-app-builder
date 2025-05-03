@@ -14,6 +14,7 @@ import {
   import prisma from "../db.server";
   import { useSubmit, useLoaderData } from "@remix-run/react";
   import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+  import { countryCodes } from "../static-data/country-codes";
   
   export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
@@ -92,14 +93,6 @@ import {
       customerPhone: "",
       appName: "",
     });
-  
-    const countryCodes = [
-      { label: "United States (+1)", value: "+1" },
-      { label: "United Kingdom (+44)", value: "+44" },
-      { label: "Australia (+61)", value: "+61" },
-      { label: "Canada (+1)", value: "+1" },
-      { label: "India (+91)", value: "+91" },
-    ];
   
     const handleSubmit = useCallback(async () => {
       const newErrors = {

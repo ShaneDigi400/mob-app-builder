@@ -37,4 +37,22 @@ model CustomerSetup {
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt
   session                        Session  @relation(fields: [shopName], references: [shop])
+  themeConfigurations            ThemeConfiguration[]
+}
+
+model ThemeConfiguration {
+  id                   String   @id @default(uuid())
+  shopName             String
+  themeCode            String
+  primaryColor         String
+  secondaryColor       String
+  backgroundColor      String
+  buttonColor          String
+  appBarBackgroundColor String
+  buttonRadius         String
+  edgePadding          String
+  splashScreenWidth    String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  customerSetup        CustomerSetup @relation(fields: [shopName], references: [shopName])
 }
