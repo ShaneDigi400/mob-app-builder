@@ -14,14 +14,14 @@ import {
   InlineStack,
 } from "@shopify/polaris";
 import { TitleBar, useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate, unauthenticated } from "../shopify.server";
+import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  //await authenticate.admin(request);
-  const storefrontResult = await unauthenticated.storefront(
-    'mobile-app-connector.myshopify.com'
-  )
-  console.log('>>>>>>storefront', storefrontResult);
+  await authenticate.admin(request);
+  // const storefrontResult = await unauthenticated.storefront(
+  //   'mobile-app-connector.myshopify.com'
+  // )
+  // console.log('>>>>>>storefront', storefrontResult);
   return null;
 };
 

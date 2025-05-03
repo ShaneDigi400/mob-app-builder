@@ -38,6 +38,7 @@ model CustomerSetup {
   updatedAt                      DateTime @updatedAt
   session                        Session  @relation(fields: [shopName], references: [shop])
   themeConfigurations            ThemeConfiguration[]
+  homePageConfiguration          HomePageConfiguration?
 }
 
 model ThemeConfiguration {
@@ -55,4 +56,20 @@ model ThemeConfiguration {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   customerSetup        CustomerSetup @relation(fields: [shopName], references: [shopName])
+}
+
+model HomePageConfiguration {
+  id                            String   @id @default(uuid())
+  shopName                      String   @unique
+  heroBanners                   String   // JSON string of Cloudinary URLs (1-4)
+  topCollections               String   // JSON string of collection IDs (1-10)
+  primaryProductList           String   // Collection ID
+  primaryProductListSortKey    String
+  primaryProductListSortKeyReverse Boolean @default(false)
+  secondaryProductList         String   // Collection ID
+  secondaryProductListSortKey  String
+  secondaryProductListSortKeyReverse Boolean @default(false)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+  customerSetup                CustomerSetup @relation(fields: [shopName], references: [shopName])
 }
