@@ -350,7 +350,7 @@ export default function ThemeConfigurationsPage() {
 
     return (
       <FormLayout.Group>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'end', gap: '1rem', position: 'relative' }}>
           <TextField
             label={label}
             value={inputValue}
@@ -367,7 +367,7 @@ export default function ThemeConfigurationsPage() {
               backgroundColor: selectedColor, 
               border: '1px solid #ccc',
               borderRadius: '4px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
             onClick={() => setShowPicker(true)}
           />
@@ -375,11 +375,12 @@ export default function ThemeConfigurationsPage() {
             <div 
               ref={pickerRef}
               style={{ 
-                position: 'fixed', 
+                position: 'absolute', 
                 zIndex: 1000, 
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
+                top: '10%',
+                left: '300px',
+                marginLeft: '8px',
+                transform: 'translateY(-50%)',
                 backgroundColor: 'white',
                 padding: '8px',
                 borderRadius: '4px',
