@@ -13,13 +13,17 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       );
     }
 
-    const { query, variables } = await request.json();
+    const { query, variables, shopName } = await request.json();
 
     if (!query) {
       return json({ error: "No query provided" }, { status: 400 });
     }
 
-    const sessionAndStorefront = await unauthenticated.storefront('mobile-app-connector.myshopify.com');
+    if (!shopName) {
+      return json({ error: "No store domain provided" }, { status: 400 });
+    }
+
+    const sessionAndStorefront = await unauthenticated.storefront(shopName);
     
     const response = await sessionAndStorefront.storefront.graphql(query, {
       variables: variables || {},
