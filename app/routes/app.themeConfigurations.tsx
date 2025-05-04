@@ -20,11 +20,12 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { themeData } from "../static-data/theme-data";
-import { useSubmit, useLoaderData, useActionData, useNavigate } from "@remix-run/react";
+import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { getExistingTheme, saveOrUpdateTheme } from "../lib/actions/themeConfigurations/themeConfigurationsActions";
 import { getExistingSetup } from "../lib/actions/setUp/setUpActions";
 import { json } from "@remix-run/node";
+import { useRedirectWithToast } from "../lib/utils/redirectWithToast";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -72,7 +73,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function ThemeConfigurationsPage() {
   const loaderData = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
+  const redirectWithToast = useRedirectWithToast();
   const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
@@ -92,13 +93,9 @@ export default function ThemeConfigurationsPage() {
   // Redirect if setup is not completed
   useEffect(() => {
     if ('error' in loaderData && 'redirectTo' in loaderData) {
-      shopify.toast.show(loaderData.error, { isError: true });
-      // Add a small delay before redirect to show the toast
-      setTimeout(() => {
-        navigate(loaderData.redirectTo);
-      }, 1000);
+      redirectWithToast(loaderData);
     }
-  }, [loaderData, navigate]);
+  }, [loaderData, redirectWithToast]);
 
   const existingTheme = 'existingTheme' in loaderData ? loaderData.existingTheme : null;
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useLoaderData, useSubmit, useActionData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -32,6 +32,7 @@ import { SearchIcon } from "@shopify/polaris-icons";
 import { getHomePageConfiguration, saveHomePageConfiguration } from "../lib/actions/homePageConfigurations/homePageConfigurationsActions";
 import { getExistingSetup } from "../lib/actions/setUp/setUpActions";
 import { getExistingTheme } from "../lib/actions/themeConfigurations/themeConfigurationsActions";
+import { useRedirectWithToast } from "../lib/utils/redirectWithToast";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -206,7 +207,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function HomePageConfigurationsPage() {
   const loaderData = useLoaderData<typeof loader>();
-  const navigate = useNavigate();
+  const redirectWithToast = useRedirectWithToast();
   const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [error, setError] = useState<string | null>(null);
@@ -241,13 +242,9 @@ export default function HomePageConfigurationsPage() {
   // Redirect if setup or theme configuration is not completed
   useEffect(() => {
     if ('error' in loaderData && 'redirectTo' in loaderData) {
-      shopify.toast.show(loaderData.error, { isError: true });
-      // Add a small delay before redirect to show the toast
-      setTimeout(() => {
-        navigate(loaderData.redirectTo);
-      }, 1000);
+      redirectWithToast(loaderData);
     }
-  }, [loaderData, navigate]);
+  }, [loaderData, redirectWithToast]);
 
   const { existingConfig, collections } = 'existingConfig' in loaderData ? loaderData : { existingConfig: null, collections: [] };
 
