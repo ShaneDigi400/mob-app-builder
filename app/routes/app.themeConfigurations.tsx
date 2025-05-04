@@ -22,20 +22,13 @@ import { authenticate } from "../shopify.server";
 import { themeData } from "../static-data/theme-data";
 import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import prisma from "../db.server";
+import { getExistingTheme, saveOrUpdateTheme } from "../lib/actions/themeConfigurations/themeConfigurationsActions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   
   // Get existing theme configuration for the shop
-  const existingTheme = await prisma.themeConfiguration.findFirst({
-    where: {
-      shopName: session.shop,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+  const existingTheme = await getExistingTheme(session.shop);
   
   return { existingTheme };
 };
@@ -44,57 +37,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const formData = await request.formData();
   
-  try {
-    const data = {
-      shopName: session.shop,
-      themeCode: formData.get("themeCode") as string,
-      primaryColor: formData.get("primaryColor") as string,
-      secondaryColor: formData.get("secondaryColor") as string,
-      backgroundColor: formData.get("backgroundColor") as string,
-      buttonColor: formData.get("buttonColor") as string,
-      appBarBackgroundColor: formData.get("appBarBackgroundColor") as string,
-      buttonRadius: formData.get("buttonRadius") as string,
-      edgePadding: formData.get("edgePadding") as string,
-      splashScreenWidth: formData.get("splashScreenWidth") as string,
-    };
+  const data = {
+    themeCode: formData.get("themeCode") as string,
+    primaryColor: formData.get("primaryColor") as string,
+    secondaryColor: formData.get("secondaryColor") as string,
+    backgroundColor: formData.get("backgroundColor") as string,
+    buttonColor: formData.get("buttonColor") as string,
+    appBarBackgroundColor: formData.get("appBarBackgroundColor") as string,
+    buttonRadius: formData.get("buttonRadius") as string,
+    edgePadding: formData.get("edgePadding") as string,
+    splashScreenWidth: formData.get("splashScreenWidth") as string,
+  };
 
-    // Validate all fields are filled
-    if (!data.themeCode || !data.primaryColor || !data.secondaryColor || 
-        !data.backgroundColor || !data.buttonColor || !data.appBarBackgroundColor || 
-        !data.buttonRadius || !data.edgePadding || !data.splashScreenWidth) {
-      return { success: false, error: "All fields are required" };
-    }
-    
-    // Check if theme configuration exists
-    const existingTheme = await prisma.themeConfiguration.findFirst({
-      where: {
-        shopName: session.shop,
-      },
-    });
-
-    if (existingTheme) {
-      // Update existing theme
-      await prisma.themeConfiguration.update({
-        where: { id: existingTheme.id },
-        data,
-      });
-    } else {
-      // Create new theme
-      await prisma.themeConfiguration.create({
-        data,
-      });
-    }
-    
-    return { success: true, error: undefined };
-  } catch (error) {
-    console.error("Error saving theme configuration:", error);
-    return { success: false, error: "Failed to save theme configuration" };
+  // Validate all fields are filled
+  if (!data.themeCode || !data.primaryColor || !data.secondaryColor || 
+      !data.backgroundColor || !data.buttonColor || !data.appBarBackgroundColor || 
+      !data.buttonRadius || !data.edgePadding || !data.splashScreenWidth) {
+    return { success: false, error: "All fields are required" };
   }
+  
+  return saveOrUpdateTheme(session.shop, data);
 };
 
 export default function ThemeConfigurationsPage() {
   const { existingTheme } = useLoaderData<typeof loader>();
-  const actionData = useActionData<{ success: boolean; error?: string }>();
+  const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
@@ -133,7 +100,7 @@ export default function ThemeConfigurationsPage() {
   useEffect(() => {
     if (actionData) {
       if (actionData.success) {
-        shopify.toast.show("Theme configuration saved successfully!");
+        shopify.toast.show(actionData.message || "Theme configuration saved successfully!")
       } else {
         shopify.toast.show(actionData.error || "Failed to save theme configuration", { isError: true });
       }

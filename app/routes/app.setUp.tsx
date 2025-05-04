@@ -12,21 +12,16 @@ import {
   import { useState, useCallback, useEffect } from "react";
   import { TitleBar } from "@shopify/app-bridge-react";
   import { authenticate } from "../shopify.server";
-  import prisma from "../db.server";
   import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
   import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
   import { countryCodes } from "../static-data/country-codes";
-  import { json } from "@remix-run/node";
+  import { getExistingSetup, saveOrUpdateSetup } from "../lib/actions/setUp/setUpActions";
   
   export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
     
     // Get existing setup data for the shop
-    const existingSetup = await prisma.customerSetup.findUnique({
-      where: {
-        shopName: session.shop,
-      },
-    });
+    const existingSetup = await getExistingSetup(session.shop);
     
     return { existingSetup };
   };
@@ -35,43 +30,15 @@ import {
     const { session } = await authenticate.admin(request);
     const formData = await request.formData();
     
-    try {
-      const data = {
-        shopName: session.shop,
-        companyName: formData.get("companyName") as string,
-        customerEmail: formData.get("customerEmail") as string,
-        customerPhoneNumberCountryCode: formData.get("countryCode") as string,
-        customerPhoneNumber: formData.get("customerPhone") as string,
-        appName: formData.get("appName") as string,
-      };
-      
-      // Check if setup already exists for this shop
-      const existingSetup = await prisma.customerSetup.findUnique({
-        where: {
-          shopName: session.shop,
-        },
-      });
-      
-      if (existingSetup) {
-        // Update existing setup
-        await prisma.customerSetup.update({
-          where: {
-            shopName: session.shop,
-          },
-          data,
-        });
-        return json({ success: true, message: "Setup updated successfully!" });
-      } else {
-        // Create new setup
-        await prisma.customerSetup.create({
-          data,
-        });
-        return json({ success: true, message: "Setup saved successfully!" });
-      }
-    } catch (error) {
-      console.error("Error saving setup data:", error);
-      return json({ success: false, message: "Failed to save setup data" });
-    }
+    const data = {
+      companyName: formData.get("companyName") as string,
+      customerEmail: formData.get("customerEmail") as string,
+      customerPhoneNumberCountryCode: formData.get("countryCode") as string,
+      customerPhoneNumber: formData.get("customerPhone") as string,
+      appName: formData.get("appName") as string,
+    };
+    
+    return saveOrUpdateSetup(session.shop, data);
   };
   
   export default function SetupPage() {

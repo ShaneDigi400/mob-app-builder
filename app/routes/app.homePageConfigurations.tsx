@@ -25,24 +25,17 @@ import {
   Thumbnail
 } from "@shopify/polaris";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
-import prisma from "../db.server";
 import { json } from "@remix-run/node";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { SearchIcon } from "@shopify/polaris-icons";
+import { getHomePageConfiguration, saveHomePageConfiguration } from "../lib/actions/homePageConfigurations/homePageConfigurationsActions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
   
   // Get existing home page configuration for the shop
-  const existingConfig = await prisma.homePageConfiguration.findFirst({
-    where: {
-      shopName: session.shop,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+  const existingConfig = await getHomePageConfiguration(session.shop);
 
   // Fetch collections from Shopify
   const collectionsResponse = await admin.graphql(
@@ -161,15 +154,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     console.log("Final hero banner URLs:", heroBannerUrls);
 
-    // Get existing configuration for update
-    const existingConfig = await prisma.homePageConfiguration.findFirst({
-      where: {
-        shopName: session.shop,
-      },
-    });
-
     const data = {
-      shopName: session.shop,
       heroBanners: JSON.stringify(heroBannerUrls),
       topCollections: formData.get("topCollections") as string,
       primaryProductList: formData.get("primaryProductList") as string,
@@ -187,18 +172,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ success: false, error: "All fields are required" });
     }
     
-    if (existingConfig) {
-      // Update existing configuration
-      await prisma.homePageConfiguration.update({
-        where: { id: existingConfig.id },
-        data,
-      });
-    } else {
-      // Create new configuration
-      await prisma.homePageConfiguration.create({
-        data,
-      });
-    }
+    await saveHomePageConfiguration(session.shop, data);
     
     return json({ success: true, message: "Home page configuration saved successfully!" });
   } catch (error) {
@@ -320,9 +294,9 @@ export default function HomePageConfigurationsPage() {
   useEffect(() => {
     if (actionData) {
       if (actionData.success) {
-        shopify.toast.show(actionData.message || "Home page configuration saved successfully!");
+        shopify.toast.show(actionData.message || "Operation completed successfully");
       } else {
-        shopify.toast.show(actionData.error || "Failed to save home page configuration", { isError: true });
+        shopify.toast.show(actionData.error || "Failed to save home page configuration");
       }
     }
   }, [actionData]);

@@ -1,7 +1,7 @@
 -- CreateTable
 CREATE TABLE "ThemeConfiguration" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "shopName" TEXT NOT NULL,
+    "shopName" TEXT NOT NULL UNIQUE,
     "themeCode" TEXT NOT NULL,
     "primaryColor" TEXT NOT NULL,
     "secondaryColor" TEXT NOT NULL,
