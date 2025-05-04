@@ -20,7 +20,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { themeData } from "../static-data/theme-data";
-import { useSubmit, useLoaderData } from "@remix-run/react";
+import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import prisma from "../db.server";
 
@@ -85,7 +85,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
     }
     
-    return { success: true };
+    return { success: true, error: undefined };
   } catch (error) {
     console.error("Error saving theme configuration:", error);
     return { success: false, error: "Failed to save theme configuration" };
@@ -94,6 +94,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function ThemeConfigurationsPage() {
   const { existingTheme } = useLoaderData<typeof loader>();
+  const actionData = useActionData<{ success: boolean; error?: string }>();
   const submit = useSubmit();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
@@ -127,6 +128,17 @@ export default function ThemeConfigurationsPage() {
       setSelectedTheme(existingTheme.themeCode);
     }
   }, [existingTheme]);
+
+  // Show toast notifications based on action result
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        shopify.toast.show("Theme configuration saved successfully!");
+      } else {
+        shopify.toast.show(actionData.error || "Failed to save theme configuration", { isError: true });
+      }
+    }
+  }, [actionData]);
 
   const handleThemeChange = useCallback((value: string) => {
     setSelectedTheme(value);
@@ -177,6 +189,34 @@ export default function ThemeConfigurationsPage() {
   }, []);
 
   const handleDiscardChanges = useCallback(() => {
+    // Check if there are any changes to discard
+    const hasChanges = existingTheme ? (
+      formData.themeCode !== existingTheme.themeCode ||
+      formData.primaryColor !== existingTheme.primaryColor ||
+      formData.secondaryColor !== existingTheme.secondaryColor ||
+      formData.backgroundColor !== existingTheme.backgroundColor ||
+      formData.buttonColor !== existingTheme.buttonColor ||
+      formData.appBarBackgroundColor !== existingTheme.appBarBackgroundColor ||
+      formData.buttonRadius !== existingTheme.buttonRadius ||
+      formData.edgePadding !== existingTheme.edgePadding ||
+      formData.splashScreenWidth !== existingTheme.splashScreenWidth
+    ) : (
+      formData.themeCode !== "" ||
+      formData.primaryColor !== "" ||
+      formData.secondaryColor !== "" ||
+      formData.backgroundColor !== "" ||
+      formData.buttonColor !== "" ||
+      formData.appBarBackgroundColor !== "" ||
+      formData.buttonRadius !== "" ||
+      formData.edgePadding !== "" ||
+      formData.splashScreenWidth !== ""
+    );
+
+    if (!hasChanges) {
+      shopify.toast.show("No changes to discard.");
+      return;
+    }
+
     if (existingTheme) {
       setFormData({
         themeCode: existingTheme.themeCode,
@@ -205,7 +245,8 @@ export default function ThemeConfigurationsPage() {
       setSelectedTheme("");
     }
     setError(null);
-  }, [existingTheme]);
+    shopify.toast.show("Changes discarded. Form restored to last saved state.");
+  }, [existingTheme, formData]);
 
   const handleResetToDefaults = useCallback(() => {
     if (selectedTheme) {
@@ -222,6 +263,7 @@ export default function ThemeConfigurationsPage() {
           edgePadding: theme.edgePadding,
           splashScreenWidth: theme.splashScreenWidth,
         });
+        shopify.toast.show("Theme values reset to defaults. Click 'Update Theme Configuration' to save these changes.");
       }
     }
     setError(null);

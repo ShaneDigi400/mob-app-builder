@@ -7,14 +7,16 @@ import {
     TextField,
     Select,
     Button,
+    InlineStack,
   } from "@shopify/polaris";
-  import { useState, useCallback } from "react";
+  import { useState, useCallback, useEffect } from "react";
   import { TitleBar } from "@shopify/app-bridge-react";
   import { authenticate } from "../shopify.server";
   import prisma from "../db.server";
-  import { useSubmit, useLoaderData } from "@remix-run/react";
+  import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
   import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
   import { countryCodes } from "../static-data/country-codes";
+  import { json } from "@remix-run/node";
   
   export const loader = async ({ request }: LoaderFunctionArgs) => {
     const { session } = await authenticate.admin(request);
@@ -58,24 +60,36 @@ import {
           },
           data,
         });
+        return json({ success: true, message: "Setup updated successfully!" });
       } else {
         // Create new setup
         await prisma.customerSetup.create({
           data,
         });
+        return json({ success: true, message: "Setup saved successfully!" });
       }
-      
-      return { success: true };
     } catch (error) {
       console.error("Error saving setup data:", error);
-      return { success: false, error: "Failed to save setup data" };
+      return json({ success: false, message: "Failed to save setup data" });
     }
   };
   
   export default function SetupPage() {
     const { existingSetup } = useLoaderData<typeof loader>();
+    const actionData = useActionData<typeof action>();
     const submit = useSubmit();
     
+    // Show toast notifications based on action result
+    useEffect(() => {
+      if (actionData) {
+        if (actionData.success) {
+          shopify.toast.show(actionData.message);
+        } else {
+          shopify.toast.show(actionData.message, { isError: true });
+        }
+      }
+    }, [actionData]);
+
     // Extract country code and phone number from existing setup
     const existingCountryCode = existingSetup?.customerPhoneNumberCountryCode
     const existingPhone = existingSetup?.customerPhoneNumber
@@ -148,6 +162,53 @@ import {
     const handleChange = useCallback((field: string, value: string) => {
       setFormData((prev) => ({ ...prev, [field]: value }));
     }, []);
+
+    const handleDiscardChanges = useCallback(() => {
+      // Check if there are any changes to discard
+      const hasChanges = existingSetup ? (
+        formData.companyName !== existingSetup.companyName ||
+        formData.customerEmail !== existingSetup.customerEmail ||
+        formData.customerPhone !== existingSetup.customerPhoneNumber ||
+        formData.countryCode !== existingSetup.customerPhoneNumberCountryCode ||
+        formData.appName !== existingSetup.appName
+      ) : (
+        formData.companyName !== "" ||
+        formData.customerEmail !== "" ||
+        formData.customerPhone !== "" ||
+        formData.countryCode !== "" ||
+        formData.appName !== ""
+      );
+
+      if (!hasChanges) {
+        shopify.toast.show("No changes to discard.");
+        return;
+      }
+
+      if (existingSetup) {
+        setFormData({
+          companyName: existingSetup.companyName,
+          customerEmail: existingSetup.customerEmail,
+          customerPhone: existingSetup.customerPhoneNumber,
+          countryCode: existingSetup.customerPhoneNumberCountryCode,
+          appName: existingSetup.appName,
+        });
+      } else {
+        setFormData({
+          companyName: "",
+          customerEmail: "",
+          customerPhone: "",
+          countryCode: "",
+          appName: "",
+        });
+      }
+      setErrors({
+        companyName: "",
+        customerEmail: "",
+        customerPhone: "",
+        appName: "",
+      });
+      shopify.toast.show("Changes discarded. Form restored to last saved state.");
+    }, [existingSetup, formData]);
   
     return (
       <Page>
@@ -209,9 +270,14 @@ import {
                     autoComplete="off"
                   />
   
-                  <Button submit>
-                    {existingSetup ? "Update" : "Save"}
-                  </Button>
+                  <InlineStack gap="400">
+                    <Button submit>
+                      {existingSetup ? "Update" : "Save"}
+                    </Button>
+                    <Button onClick={handleDiscardChanges}>
+                      Discard Changes
+                    </Button>
+                  </InlineStack>
                 </FormLayout>
               </Form>
             </Card>

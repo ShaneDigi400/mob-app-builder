@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useLoaderData, useSubmit } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -212,6 +212,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function HomePageConfigurationsPage() {
   const { existingConfig, collections } = useLoaderData<typeof loader>();
+  const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -315,51 +316,50 @@ export default function HomePageConfigurationsPage() {
     setHeroBannerFiles([]);
   }, [formData, submit, heroBannerFiles, selectedCollections]);
 
-  // Handle action response
+  // Show toast notifications based on action result
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'action') {
-        const { success, error, message } = event.data;
-        if (success) {
-          setSuccess(message);
-          setError(null);
-        } else {
-          setError(error);
-          setSuccess(null);
-        }
+    if (actionData) {
+      if (actionData.success) {
+        shopify.toast.show(actionData.message || "Home page configuration saved successfully!");
+      } else {
+        shopify.toast.show(actionData.error || "Failed to save home page configuration", { isError: true });
       }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  // Handle form submission response
-  useEffect(() => {
-    const handleSubmitResponse = (event: SubmitEvent) => {
-      const form = event.target as HTMLFormElement;
-      const response = form.dataset.response;
-      if (response) {
-        const data = JSON.parse(response);
-        if (data.success) {
-          setSuccess(data.message);
-          setError(null);
-        } else {
-          setError(data.error);
-          setSuccess(null);
-        }
-      }
-    };
-
-    document.addEventListener('submit', handleSubmitResponse);
-    return () => document.removeEventListener('submit', handleSubmitResponse);
-  }, []);
+    }
+  }, [actionData]);
 
   const handleChange = useCallback((field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const handleDiscardChanges = useCallback(() => {
+    // Check if there are any changes to discard
+    const hasChanges = existingConfig ? (
+      JSON.stringify(formData.heroBanners) !== existingConfig.heroBanners ||
+      formData.topCollections !== existingConfig.topCollections ||
+      formData.primaryProductList !== existingConfig.primaryProductList ||
+      formData.primaryProductListSortKey !== existingConfig.primaryProductListSortKey ||
+      formData.primaryProductListSortKeyReverse !== existingConfig.primaryProductListSortKeyReverse ||
+      formData.secondaryProductList !== existingConfig.secondaryProductList ||
+      formData.secondaryProductListSortKey !== existingConfig.secondaryProductListSortKey ||
+      formData.secondaryProductListSortKeyReverse !== existingConfig.secondaryProductListSortKeyReverse ||
+      heroBannerFiles.length > 0
+    ) : (
+      formData.heroBanners.length > 0 ||
+      formData.topCollections !== '' ||
+      formData.primaryProductList !== '' ||
+      formData.primaryProductListSortKey !== 'RELEVANCE' ||
+      formData.primaryProductListSortKeyReverse !== false ||
+      formData.secondaryProductList !== '' ||
+      formData.secondaryProductListSortKey !== 'RELEVANCE' ||
+      formData.secondaryProductListSortKeyReverse !== false ||
+      heroBannerFiles.length > 0
+    );
+
+    if (!hasChanges) {
+      shopify.toast.show("No changes to discard.");
+      return;
+    }
+
     if (existingConfig) {
       setFormData({
         heroBanners: JSON.parse(existingConfig.heroBanners),
@@ -394,7 +394,8 @@ export default function HomePageConfigurationsPage() {
       setSecondaryCollectionInput('');
     }
     setError(null);
-  }, [existingConfig, collections]);
+    shopify.toast.show("Changes discarded. Form restored to last saved state.");
+  }, [existingConfig, collections, formData, heroBannerFiles]);
 
   const handleActiveOptionChange = useCallback(
     (activeOption: string) => {
