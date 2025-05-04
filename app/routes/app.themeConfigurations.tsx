@@ -587,13 +587,13 @@ export default function ThemeConfigurationsPage() {
                 </Box>
 
                 <InlineStack gap="400">
-                  <Button submit>
+                  <Button variant="primary" submit>
                     {existingTheme ? "Update Theme Configuration" : "Save Theme Configuration"}
                   </Button>
                   <Button onClick={handleDiscardChanges}>
                     Discard Changes
                   </Button>
-                  <Button onClick={handleResetToDefaults}>
+                  <Button variant="primary" tone="critical" onClick={handleResetToDefaults}>
                     Reset to Defaults
                   </Button>
                 </InlineStack>

@@ -853,7 +853,7 @@ export default function HomePageConfigurationsPage() {
                 </Box>
 
                 <InlineStack gap="400">
-                  <Button submit>
+                  <Button variant="primary" submit>
                     {existingConfig ? "Update Configuration" : "Save Configuration"}
                   </Button>
                   <Button onClick={handleDiscardChanges}>

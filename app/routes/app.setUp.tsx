@@ -238,7 +238,7 @@ import {
                   />
   
                   <InlineStack gap="400">
-                    <Button submit>
+                    <Button variant="primary" submit>
                       {existingSetup ? "Update" : "Save"}
                     </Button>
                     <Button onClick={handleDiscardChanges}>
