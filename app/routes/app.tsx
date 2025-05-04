@@ -27,6 +27,7 @@ export default function App() {
         <Link to="/app/setUp">01. SetUp page</Link>
         <Link to="/app/themeConfigurations">02. Theme Configurations</Link>
         <Link to="/app/homePageConfigurations">03. Home Page Configurations</Link>
+        <Link to="/app/deploymentConfigurations">04. Deployment Configurations</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>
