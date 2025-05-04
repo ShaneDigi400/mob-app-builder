@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLoaderData, useSubmit } from "@remix-run/react";
 import {
   Page,
@@ -14,13 +14,22 @@ import {
   ChoiceList,
   Text,
   DropZone,
-  InlineStack
+  InlineStack,
+  LegacyStack,
+  Tag,
+  Listbox,
+  EmptySearchResult,
+  Combobox,
+  AutoSelection,
+  Icon,
+  Thumbnail
 } from "@shopify/polaris";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import prisma from "../db.server";
 import { json } from "@remix-run/node";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { SearchIcon } from "@shopify/polaris-icons";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
@@ -67,8 +76,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     // Handle file uploads
     const heroBannerFiles = formData.getAll("heroBannerFiles") as File[];
+    const existingHeroBanners = JSON.parse(formData.get("existingHeroBanners") as string || "[]");
     console.log("Received files:", heroBannerFiles);
-    const heroBannerUrls: string[] = [];
+    console.log("Existing banners:", existingHeroBanners);
+    const heroBannerUrls: string[] = [...existingHeroBanners];
 
     for (const file of heroBannerFiles) {
       try {
@@ -150,7 +161,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     console.log("Final hero banner URLs:", heroBannerUrls);
 
-    // If no valid files were uploaded, use existing hero banners
+    // Get existing configuration for update
     const existingConfig = await prisma.homePageConfiguration.findFirst({
       where: {
         shopName: session.shop,
@@ -159,7 +170,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     const data = {
       shopName: session.shop,
-      heroBanners: heroBannerUrls.length > 0 ? JSON.stringify(heroBannerUrls) : existingConfig?.heroBanners || "[]",
+      heroBanners: JSON.stringify(heroBannerUrls),
       topCollections: formData.get("topCollections") as string,
       primaryProductList: formData.get("primaryProductList") as string,
       primaryProductListSortKey: formData.get("primaryProductListSortKey") as string,
@@ -217,14 +228,19 @@ export default function HomePageConfigurationsPage() {
     heroBanners: [],
     topCollections: '',
     primaryProductList: '',
-    primaryProductListSortKey: '',
+    primaryProductListSortKey: 'RELEVANCE',
     primaryProductListSortKeyReverse: false,
     secondaryProductList: '',
-    secondaryProductListSortKey: '',
+    secondaryProductListSortKey: 'RELEVANCE',
     secondaryProductListSortKeyReverse: false,
   });
   const [heroBannerFiles, setHeroBannerFiles] = useState<File[]>([]);
   const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [searchValue, setSearchValue] = useState('');
+  const [suggestion, setSuggestion] = useState('');
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [primaryCollectionInput, setPrimaryCollectionInput] = useState('');
+  const [secondaryCollectionInput, setSecondaryCollectionInput] = useState('');
 
   const handleHeroBannerDrop = useCallback((_dropFiles: File[], acceptedFiles: File[]) => {
     console.log("Files dropped:", acceptedFiles);
@@ -249,11 +265,25 @@ export default function HomePageConfigurationsPage() {
         secondaryProductListSortKeyReverse: existingConfig.secondaryProductListSortKeyReverse,
       });
       setSelectedCollections(JSON.parse(existingConfig.topCollections));
+      
+      // Set initial values for Combobox inputs
+      const primaryCollection = collections.find((c: { label: string; value: string }) => c.value === existingConfig.primaryProductList);
+      const secondaryCollection = collections.find((c: { label: string; value: string }) => c.value === existingConfig.secondaryProductList);
+      setPrimaryCollectionInput(primaryCollection?.label || '');
+      setSecondaryCollectionInput(secondaryCollection?.label || '');
     }
-  }, [existingConfig]);
+  }, [existingConfig, collections]);
 
   const handleSubmit = useCallback(() => {
     const formDataToSubmit = new FormData();
+    
+    // Calculate total images (existing + new)
+    const totalImages = formData.heroBanners.length + heroBannerFiles.length;
+    
+    if (totalImages > 4) {
+      setError("You can only have up to 4 hero banner images total");
+      return;
+    }
     
     // Add hero banner files
     heroBannerFiles.forEach((file) => {
@@ -262,6 +292,9 @@ export default function HomePageConfigurationsPage() {
         formDataToSubmit.append("heroBannerFiles", file, file.name);
       }
     });
+    
+    // Add existing hero banner URLs
+    formDataToSubmit.append("existingHeroBanners", JSON.stringify(formData.heroBanners));
     
     // Add other form data
     formDataToSubmit.append("topCollections", JSON.stringify(selectedCollections));
@@ -277,6 +310,9 @@ export default function HomePageConfigurationsPage() {
       method: "post",
       encType: "multipart/form-data"
     });
+
+    // Clear the files to upload after submission
+    setHeroBannerFiles([]);
   }, [formData, submit, heroBannerFiles, selectedCollections]);
 
   // Handle action response
@@ -336,29 +372,161 @@ export default function HomePageConfigurationsPage() {
         secondaryProductListSortKeyReverse: existingConfig.secondaryProductListSortKeyReverse,
       });
       setSelectedCollections(JSON.parse(existingConfig.topCollections));
+      
+      // Reset Combobox values
+      const primaryCollection = collections.find((c: { label: string; value: string }) => c.value === existingConfig.primaryProductList);
+      const secondaryCollection = collections.find((c: { label: string; value: string }) => c.value === existingConfig.secondaryProductList);
+      setPrimaryCollectionInput(primaryCollection?.label || '');
+      setSecondaryCollectionInput(secondaryCollection?.label || '');
     } else {
       setFormData({
         heroBanners: [],
         topCollections: '',
         primaryProductList: '',
-        primaryProductListSortKey: '',
+        primaryProductListSortKey: 'RELEVANCE',
         primaryProductListSortKeyReverse: false,
         secondaryProductList: '',
-        secondaryProductListSortKey: '',
+        secondaryProductListSortKey: 'RELEVANCE',
         secondaryProductListSortKeyReverse: false,
       });
       setSelectedCollections([]);
+      setPrimaryCollectionInput('');
+      setSecondaryCollectionInput('');
     }
     setError(null);
-  }, [existingConfig]);
+  }, [existingConfig, collections]);
 
-  const handleCollectionSelect = useCallback((value: string[]) => {
-    if (value.length > 10) {
-      setError("You can only select up to 10 collections");
-      return;
+  const handleActiveOptionChange = useCallback(
+    (activeOption: string) => {
+      const activeOptionIsAction = activeOption === searchValue;
+      if (!activeOptionIsAction && !selectedCollections.includes(activeOption)) {
+        setSuggestion(activeOption);
+      } else {
+        setSuggestion('');
+      }
+    },
+    [searchValue, selectedCollections],
+  );
+
+  const updateSelection = useCallback(
+    (selected: string) => {
+      const nextSelectedCollections = new Set([...selectedCollections]);
+      if (nextSelectedCollections.has(selected)) {
+        nextSelectedCollections.delete(selected);
+      } else {
+        if (nextSelectedCollections.size >= 10) {
+          setError("You can only select up to 10 collections");
+          return;
+        }
+        nextSelectedCollections.add(selected);
+      }
+      setSelectedCollections([...nextSelectedCollections]);
+      setSearchValue('');
+      setSuggestion('');
+      setError(null);
+    },
+    [selectedCollections],
+  );
+
+  const removeTag = useCallback(
+    (tag: string) => () => {
+      updateSelection(tag);
+    },
+    [updateSelection],
+  );
+
+  const formatOptionText = useCallback(
+    (option: string) => {
+      const trimValue = searchValue.trim().toLocaleLowerCase();
+      const matchIndex = option.toLocaleLowerCase().indexOf(trimValue);
+
+      if (!searchValue || matchIndex === -1) return option;
+
+      const start = option.slice(0, matchIndex);
+      const highlight = option.slice(matchIndex, matchIndex + trimValue.length);
+      const end = option.slice(matchIndex + trimValue.length, option.length);
+
+      return (
+        <p>
+          {start}
+          <Text fontWeight="bold" as="span">
+            {highlight}
+          </Text>
+          {end}
+        </p>
+      );
+    },
+    [searchValue],
+  );
+
+  const escapeSpecialRegExCharacters = useCallback(
+    (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+    [],
+  );
+
+  const options = useMemo(() => {
+    let list;
+    const filterRegex = new RegExp(escapeSpecialRegExCharacters(searchValue), 'i');
+
+    if (searchValue) {
+      list = collections.filter((collection: { label: string; value: string }) => collection.label.match(filterRegex));
+    } else {
+      list = collections;
     }
-    setSelectedCollections(value);
-  }, []);
+
+    return [...list];
+  }, [searchValue, collections, escapeSpecialRegExCharacters]);
+
+  const verticalContentMarkup =
+    selectedCollections.length > 0 ? (
+      <LegacyStack spacing="extraTight" alignment="center">
+        {selectedCollections.map((collection: string) => {
+          const collectionLabel = collections.find((c: { value: string; label: string }) => c.value === collection)?.label || collection;
+          return (
+            <Tag key={`option-${collection}`} onRemove={removeTag(collection)}>
+              {collectionLabel}
+            </Tag>
+          );
+        })}
+      </LegacyStack>
+    ) : null;
+
+  const optionMarkup =
+    options.length > 0
+      ? options.map((option) => {
+          return (
+            <Listbox.Option
+              key={option.value}
+              value={option.value}
+              selected={selectedCollections.includes(option.value)}
+              accessibilityLabel={option.label}
+            >
+              <Listbox.TextOption selected={selectedCollections.includes(option.value)}>
+                {formatOptionText(option.label)}
+              </Listbox.TextOption>
+            </Listbox.Option>
+          );
+        })
+      : null;
+
+  const emptyStateMarkup = optionMarkup ? null : (
+    <EmptySearchResult
+      title=""
+      description={`No collections found matching "${searchValue}"`}
+    />
+  );
+
+  const listboxMarkup =
+    optionMarkup || emptyStateMarkup ? (
+      <Listbox
+        autoSelection={AutoSelection.None}
+        onSelect={updateSelection}
+        onActiveOptionChange={handleActiveOptionChange}
+      >
+        {optionMarkup}
+        {emptyStateMarkup}
+      </Listbox>
+    ) : null;
 
   const sortKeyOptions = [
     { label: "Best Selling", value: "BEST_SELLING" },
@@ -366,6 +534,78 @@ export default function HomePageConfigurationsPage() {
     { label: "Relevance", value: "RELEVANCE" },
     { label: "Title", value: "TITLE" },
   ];
+
+  const updatePrimaryCollectionText = useCallback(
+    (value: string) => {
+      setPrimaryCollectionInput(value);
+      if (!value) {
+        setFormData(prev => ({ ...prev, primaryProductList: '' }));
+      }
+    },
+    [],
+  );
+
+  const updateSecondaryCollectionText = useCallback(
+    (value: string) => {
+      setSecondaryCollectionInput(value);
+      if (!value) {
+        setFormData(prev => ({ ...prev, secondaryProductList: '' }));
+      }
+    },
+    [],
+  );
+
+  const updatePrimaryCollectionSelection = useCallback(
+    (selected: string) => {
+      const matchedOption = collections.find((option: { label: string; value: string }) => {
+        return option.value === selected;
+      });
+
+      setFormData(prev => ({ ...prev, primaryProductList: selected }));
+      setPrimaryCollectionInput((matchedOption && matchedOption.label) || '');
+    },
+    [collections],
+  );
+
+  const updateSecondaryCollectionSelection = useCallback(
+    (selected: string) => {
+      const matchedOption = collections.find((option: { label: string; value: string }) => {
+        return option.value === selected;
+      });
+
+      setFormData(prev => ({ ...prev, secondaryProductList: selected }));
+      setSecondaryCollectionInput((matchedOption && matchedOption.label) || '');
+    },
+    [collections],
+  );
+
+  const primaryOptionsMarkup = collections.map((option: { label: string; value: string }) => {
+    const { label, value } = option;
+    return (
+      <Listbox.Option
+        key={`${value}`}
+        value={value}
+        selected={formData.primaryProductList === value}
+        accessibilityLabel={label}
+      >
+        {label}
+      </Listbox.Option>
+    );
+  });
+
+  const secondaryOptionsMarkup = collections.map((option: { label: string; value: string }) => {
+    const { label, value } = option;
+    return (
+      <Listbox.Option
+        key={`${value}`}
+        value={value}
+        selected={formData.secondaryProductList === value}
+        accessibilityLabel={label}
+      >
+        {label}
+      </Listbox.Option>
+    );
+  });
 
   return (
     <Page>
@@ -393,18 +633,37 @@ export default function HomePageConfigurationsPage() {
                       <Text as="p" variant="bodyMd">Upload up to 4 hero banner images</Text>
                     </Box>
                     <FormLayout.Group>
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ 
+                          display: 'block',
+                          fontSize: '0.875rem',
+                          fontWeight: '500',
+                          color: '#374151',
+                          marginBottom: '0.5rem'
+                        }}>
                           Hero Banners
                         </label>
                         {formData.heroBanners.length > 0 && (
-                          <div className="flex flex-wrap gap-4 mb-4">
+                          <div style={{ 
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '1rem',
+                            marginBottom: '1rem'
+                          }}>
                             {formData.heroBanners.map((banner: string, index: number) => (
-                              <div key={index} className="relative group">
-                                <img
-                                  src={banner}
+                              <div 
+                                key={index} 
+                                style={{ 
+                                  position: 'relative',
+                                  cursor: 'pointer'
+                                }}
+                                onMouseEnter={() => setHoveredIndex(index)}
+                                onMouseLeave={() => setHoveredIndex(null)}
+                              >
+                                <Thumbnail
+                                  source={banner}
+                                  size="large"
                                   alt={`Hero banner ${index + 1}`}
-                                  className="w-32 h-32 object-cover rounded-lg"
                                 />
                                 <button
                                   type="button"
@@ -413,7 +672,24 @@ export default function HomePageConfigurationsPage() {
                                     newBanners.splice(index, 1);
                                     setFormData(prev => ({ ...prev, heroBanners: newBanners }));
                                   }}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                  style={{
+                                    position: 'absolute',
+                                    top: '0.25rem',
+                                    right: '0.25rem',
+                                    backgroundColor: '#ef4444',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '1.5rem',
+                                    height: '1.5rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: hoveredIndex === index ? '1' : '0',
+                                    transition: 'opacity 0.2s',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: 0
+                                  }}
                                 >
                                   ×
                                 </button>
@@ -430,9 +706,19 @@ export default function HomePageConfigurationsPage() {
                           <DropZone.FileUpload />
                         </DropZone>
                         {heroBannerFiles.length > 0 && (
-                          <div className="mt-4">
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Files to upload:</h4>
-                            <ul className="text-sm text-gray-600">
+                          <div style={{ marginTop: '1rem' }}>
+                            <h4 style={{
+                              fontSize: '0.875rem',
+                              fontWeight: '500',
+                              color: '#374151',
+                              marginBottom: '0.5rem'
+                            }}>
+                              Files to upload:
+                            </h4>
+                            <ul style={{
+                              fontSize: '0.875rem',
+                              color: '#4b5563'
+                            }}>
                               {heroBannerFiles.map((file: File, index: number) => (
                                 <li key={index}>{file.name}</li>
                               ))}
@@ -451,13 +737,25 @@ export default function HomePageConfigurationsPage() {
                       <Text as="p" variant="bodyMd">Select up to 10 collections to display</Text>
                     </Box>
                     <FormLayout.Group>
-                      <ChoiceList
-                        title="Collections"
-                        choices={collections}
-                        selected={selectedCollections}
-                        onChange={handleCollectionSelect}
-                        allowMultiple
-                      />
+                      
+                        <Combobox
+                          allowMultiple
+                          activator={
+                            <Combobox.TextField
+                              autoComplete="off"
+                              label="Search collections"
+                              labelHidden
+                              value={searchValue}
+                              suggestion={suggestion}
+                              placeholder="Search collections"
+                              verticalContent={verticalContentMarkup}
+                              onChange={setSearchValue}
+                            />
+                          }
+                        >
+                          {listboxMarkup}
+                        </Combobox>
+       
                     </FormLayout.Group>
                   </BlockStack>
                 </Box>
@@ -468,12 +766,24 @@ export default function HomePageConfigurationsPage() {
                       <Text variant="headingMd" as="h2">Expanded Collection 1</Text>
                     </Box>
                     <FormLayout.Group>
-                      <Select
-                        label="Collection"
-                        options={collections}
-                        value={formData.primaryProductList}
-                        onChange={(value) => handleChange("primaryProductList", value)}
-                      />
+       
+                        <Combobox
+                          activator={
+                            <Combobox.TextField
+                              prefix={<Icon source={SearchIcon} />}
+                              onChange={updatePrimaryCollectionText}
+                              label="Collection"
+                              value={primaryCollectionInput}
+                              placeholder="Search collections"
+                              autoComplete="off"
+                            />
+                          }
+                        >
+                          <Listbox onSelect={updatePrimaryCollectionSelection}>
+                            {primaryOptionsMarkup}
+                          </Listbox>
+                        </Combobox>
+
                       <Select
                         label="Sort By"
                         options={sortKeyOptions}
@@ -499,12 +809,24 @@ export default function HomePageConfigurationsPage() {
                       <Text variant="headingMd" as="h2">Expanded Collection 2</Text>
                     </Box>
                     <FormLayout.Group>
-                      <Select
-                        label="Collection"
-                        options={collections}
-                        value={formData.secondaryProductList}
-                        onChange={(value) => handleChange("secondaryProductList", value)}
-                      />
+
+                        <Combobox
+                          activator={
+                            <Combobox.TextField
+                              prefix={<Icon source={SearchIcon} />}
+                              onChange={updateSecondaryCollectionText}
+                              label="Collection"
+                              value={secondaryCollectionInput}
+                              placeholder="Search collections"
+                              autoComplete="off"
+                            />
+                          }
+                        >
+                          <Listbox onSelect={updateSecondaryCollectionSelection}>
+                            {secondaryOptionsMarkup}
+                          </Listbox>
+                        </Combobox>
+ 
                       <Select
                         label="Sort By"
                         options={sortKeyOptions}
