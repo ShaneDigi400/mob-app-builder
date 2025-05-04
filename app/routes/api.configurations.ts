@@ -25,7 +25,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     const customerSetup = await prisma.customerSetup.findUnique({
       where: { shopName },
       include: {
-        themeConfigurations: true
+        themeConfigurations: true,
+        homePageConfiguration: true
       }
     });
 
@@ -34,8 +35,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
 
     return json({
-      ...customerSetup,
-      themeConfigurations: customerSetup.themeConfigurations[0]
+      customerSetup: {
+        id: customerSetup.id,
+        shopName: customerSetup.shopName,
+        companyName: customerSetup.companyName,
+        customerEmail: customerSetup.customerEmail,
+        customerPhoneNumberCountryCode: customerSetup.customerPhoneNumberCountryCode,
+        customerPhoneNumber: customerSetup.customerPhoneNumber,
+        appName: customerSetup.appName
+      },
+      themeConfigurations: customerSetup.themeConfigurations[0],
+      homePageConfiguration: {
+        heroBanners: JSON.parse(customerSetup.homePageConfiguration?.heroBanners || '[]'),
+        topCollections: JSON.parse(customerSetup.homePageConfiguration?.topCollections || '[]'),
+        primaryProductList: {
+          list: customerSetup.homePageConfiguration?.primaryProductList || [],
+          sortKey: customerSetup.homePageConfiguration?.primaryProductListSortKey,
+          reverse: customerSetup.homePageConfiguration?.primaryProductListSortKeyReverse
+        },
+        secondaryProductList: {
+          list: customerSetup.homePageConfiguration?.secondaryProductList || [],
+          sortKey: customerSetup.homePageConfiguration?.secondaryProductListSortKey,
+          reverse: customerSetup.homePageConfiguration?.secondaryProductListSortKeyReverse
+        }
+      }
     });
   } catch (error) {
     console.error("Configuration API Error:", error);
