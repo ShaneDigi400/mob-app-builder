@@ -20,17 +20,28 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { themeData } from "../static-data/theme-data";
-import { useSubmit, useLoaderData, useActionData } from "@remix-run/react";
+import { useSubmit, useLoaderData, useActionData, useNavigate } from "@remix-run/react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { getExistingTheme, saveOrUpdateTheme } from "../lib/actions/themeConfigurations/themeConfigurationsActions";
+import { getExistingSetup } from "../lib/actions/setUp/setUpActions";
+import { json } from "@remix-run/node";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   
+  // Check if setup is completed
+  const existingSetup = await getExistingSetup(session.shop);
+  if (!existingSetup) {
+    return json({ 
+      error: "Please complete the setup first", 
+      redirectTo: "/app/setUp" 
+    } as const, { status: 403 });
+  }
+  
   // Get existing theme configuration for the shop
   const existingTheme = await getExistingTheme(session.shop);
   
-  return { existingTheme };
+  return json({ existingTheme } as const);
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -60,7 +71,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function ThemeConfigurationsPage() {
-  const { existingTheme } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [selectedTheme, setSelectedTheme] = useState<string>("");
@@ -76,7 +88,19 @@ export default function ThemeConfigurationsPage() {
     edgePadding: "",
     splashScreenWidth: "",
   });
-  const [error, setError] = useState<string | null>(null);
+
+  // Redirect if setup is not completed
+  useEffect(() => {
+    if ('error' in loaderData && 'redirectTo' in loaderData) {
+      shopify.toast.show(loaderData.error, { isError: true });
+      // Add a small delay before redirect to show the toast
+      setTimeout(() => {
+        navigate(loaderData.redirectTo);
+      }, 1000);
+    }
+  }, [loaderData, navigate]);
+
+  const existingTheme = 'existingTheme' in loaderData ? loaderData.existingTheme : null;
 
   // Load existing theme data if it exists
   useEffect(() => {
@@ -109,7 +133,6 @@ export default function ThemeConfigurationsPage() {
 
   const handleThemeChange = useCallback((value: string) => {
     setSelectedTheme(value);
-    setError(null);
     const theme = themeData.find(t => t.themeCode === value);
     if (theme) {
       setFormData({
@@ -141,7 +164,7 @@ export default function ThemeConfigurationsPage() {
 
   const handleSubmit = useCallback(() => {
     if (!selectedTheme) {
-      setError("Please select a theme");
+      shopify.toast.show("Please select a theme");
       return;
     }
     submit(formData, { method: "post" });
@@ -211,7 +234,6 @@ export default function ThemeConfigurationsPage() {
       });
       setSelectedTheme("");
     }
-    setError(null);
     shopify.toast.show("Changes discarded. Form restored to last saved state.");
   }, [existingTheme, formData]);
 
@@ -233,7 +255,6 @@ export default function ThemeConfigurationsPage() {
         shopify.toast.show("Theme values reset to defaults. Click 'Update Theme Configuration' to save these changes.");
       }
     }
-    setError(null);
   }, [selectedTheme]);
 
   const handleButtonRadiusChange = useCallback((value: number) => {
@@ -423,9 +444,9 @@ export default function ThemeConfigurationsPage() {
           <Card>
             <Form onSubmit={handleSubmit}>
               <FormLayout>
-                {error && (
+                {actionData?.error && (
                   <Banner tone="critical">
-                    <p>{error}</p>
+                    <p>{actionData.error}</p>
                   </Banner>
                 )}
                 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useLoaderData, useSubmit, useActionData } from "@remix-run/react";
+import { useLoaderData, useSubmit, useActionData, useNavigate } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -30,9 +30,29 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { SearchIcon } from "@shopify/polaris-icons";
 import { getHomePageConfiguration, saveHomePageConfiguration } from "../lib/actions/homePageConfigurations/homePageConfigurationsActions";
+import { getExistingSetup } from "../lib/actions/setUp/setUpActions";
+import { getExistingTheme } from "../lib/actions/themeConfigurations/themeConfigurationsActions";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
+  
+  // Check if setup is completed
+  const existingSetup = await getExistingSetup(session.shop);
+  if (!existingSetup) {
+    return json({ 
+      error: "Please complete the setup first", 
+      redirectTo: "/app/setUp" 
+    } as const, { status: 403 });
+  }
+
+  // Check if theme configuration is completed
+  const existingTheme = await getExistingTheme(session.shop);
+  if (!existingTheme) {
+    return json({ 
+      error: "Please complete the theme configuration first", 
+      redirectTo: "/app/themeConfigurations" 
+    } as const, { status: 403 });
+  }
   
   // Get existing home page configuration for the shop
   const existingConfig = await getHomePageConfiguration(session.shop);
@@ -59,7 +79,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     value: edge.node.id,
   }));
   
-  return json({ existingConfig, collections });
+  return json({ existingConfig, collections } as const);
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -185,7 +205,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function HomePageConfigurationsPage() {
-  const { existingConfig, collections } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const actionData = useActionData<{ success: boolean; error?: string; message?: string }>();
   const submit = useSubmit();
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +237,19 @@ export default function HomePageConfigurationsPage() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [primaryCollectionInput, setPrimaryCollectionInput] = useState('');
   const [secondaryCollectionInput, setSecondaryCollectionInput] = useState('');
+
+  // Redirect if setup or theme configuration is not completed
+  useEffect(() => {
+    if ('error' in loaderData && 'redirectTo' in loaderData) {
+      shopify.toast.show(loaderData.error, { isError: true });
+      // Add a small delay before redirect to show the toast
+      setTimeout(() => {
+        navigate(loaderData.redirectTo);
+      }, 1000);
+    }
+  }, [loaderData, navigate]);
+
+  const { existingConfig, collections } = 'existingConfig' in loaderData ? loaderData : { existingConfig: null, collections: [] };
 
   const handleHeroBannerDrop = useCallback((_dropFiles: File[], acceptedFiles: File[]) => {
     console.log("Files dropped:", acceptedFiles);
