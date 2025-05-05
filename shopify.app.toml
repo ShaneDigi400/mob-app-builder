@@ -3,7 +3,7 @@
 client_id = "b605980b90f2572353b86a3d019a7152"
 name = "mob-app-builder"
 handle = "mob-app-builder"
-application_url = "https://mob-app-builder-little-sun-592.fly.dev"
+application_url = "https://app-mobifygo.yellowbay-b5f0589a.southeastasia.azurecontainerapps.io"
 embedded = true
 
 [build]
@@ -27,9 +27,9 @@ scopes = "read_products,read_files,write_files,unauthenticated_read_bulk_operati
 
 [auth]
 redirect_urls = [
-  "https://mob-app-builder-little-sun-592.fly.dev/auth/callback",
-  "https://mob-app-builder-little-sun-592.fly.dev/auth/shopify/callback",
-  "https://mob-app-builder-little-sun-592.fly.dev/api/auth/callback"
+  "https://app-mobifygo.yellowbay-b5f0589a.southeastasia.azurecontainerapps.io/auth/callback",
+  "https://app-mobifygo.yellowbay-b5f0589a.southeastasia.azurecontainerapps.io/auth/shopify/callback",
+  "https://app-mobifygo.yellowbay-b5f0589a.southeastasia.azurecontainerapps.io/api/auth/callback"
 ]
 
 [pos]
