@@ -509,6 +509,12 @@ export default function ThemeConfigurationsPage() {
                 />
                 
                 <ColorPickerComponent
+                  label="Secondary Color"
+                  color={formData.secondaryColor}
+                  onChange={(value) => handleColorChange("secondaryColor", value)}
+                />
+                
+                <ColorPickerComponent
                   label="Background Color"
                   color={formData.backgroundColor}
                   onChange={(value) => handleColorChange("backgroundColor", value)}
